@@ -10,7 +10,8 @@ libraryDependencies += "org.scalatest" % "scalatest_2.10" % "2.0" % "test"
 
 libraryDependencies += "com.github.nscala-time" %% "nscala-time" % "0.6.0"
 
-libraryDependencies += "com.sksamuel.elastic4s" %% "elastic4s" % "1.3.3"
+//libraryDependencies += "com.sksamuel.elastic4s" %% "elastic4s" % "1.3.3"
+libraryDependencies += "com.sksamuel.elastic4s" %% "elastic4s" % "1.0.0.0"
 
 libraryDependencies +=  "org.json4s" %% "json4s-native" % "3.2.5"
 

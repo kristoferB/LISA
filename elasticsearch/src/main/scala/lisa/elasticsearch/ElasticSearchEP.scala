@@ -1,6 +1,7 @@
 package lisa.elasticsearch
 
 import akka.actor._
+import akka.camel._
 import lisa.endpoint.message._
 import lisa.endpoint.esb._
 
@@ -13,14 +14,12 @@ class ElasticSearchEP(prop: LISAEndPointProperties) extends LISAEndPoint(prop) {
   
   import com.sksamuel.elastic4s.ElasticClient
   import com.sksamuel.elastic4s.ElasticDsl._
-  val client = ElasticClient.remote("0.0.0.0", 9300)
+  val client = ElasticClient.remote("192.168.89.133", 9300)
 
   var count = 0
   
   prop.topics foreach { topic =>
-    client execute {
-      create index topic.toLowerCase()
-    }
+    client execute { create index topic.toLowerCase() }
   }
 
   
@@ -28,22 +27,37 @@ class ElasticSearchEP(prop: LISAEndPointProperties) extends LISAEndPoint(prop) {
     case mess: LISAMessage => {
     	sendToES(mess)
     }
+    case mess : CamelMessage => {
+      sendToES(LISAMessage(parseJson(mess.body),mess.headers))    
+    }
   }
   
   
   def sendToES(mess: LISAMessage) = {
     val topic = mess.getTopic.toLowerCase()
-    client.execute {
+    import com.sksamuel.elastic4s.ElasticDsl._
+    client.execute { index into topic + "/lisamessage" doc Convert(mess) }
+    /*client.execute {
       val temp = index into topic fields mess.body
       temp.
-//      val temp = index into "lisamessage" doc mess
-//
-//      index into "lisamessage" doc mess
-  }
+	//      val temp = index into "lisamessage" doc mess
+	//
+	//      index into "lisamessage" doc mess
+  	}*/
     //println(topic+" no:"+count)
-    count += 1
+    //count += 1
     //log.debug("Sending to ES on : "+topic+" mess:" + mess)
-
+   }
+  
+  def parseJson(body: Any) : Map[String,LISAValue] = {
+    val messbody = body.asInstanceOf[String].filterNot("\n\r{}".toSet)
+    var map : Map[String,LISAValue] = Map.empty
+    val splitArray = messbody.split(",")
+    for(element <- splitArray) {
+      val lineSplit = element.split("\"")
+      map = map + (lineSplit(1) -> LISAValue(lineSplit(3)))    
+    }
+      map    
   }
   
   
@@ -56,7 +70,7 @@ object ElasticSearchEP {
 
 
  import com.sksamuel.elastic4s.source._
-  case class Convert(lm: LISAMessage)  {
+  case class Convert(lm: LISAMessage) extends DocumentSource  {
     import org.json4s._
     import org.json4s.native.Serialization
     import org.json4s.native.Serialization.{ read, write }
