@@ -34,8 +34,8 @@ class ElasticSearchEP(prop: LISAEndPointProperties) extends LISAEndPoint(prop) {
   def sendToES(mess: LISAMessage) = {
     val topic = mess.getTopic.toLowerCase()
     client.execute {
-      val temp = index into topic fields mess.body
-      temp.
+      index into topic fields mess.body
+      //temp
 //      val temp = index into "lisamessage" doc mess
 //
 //      index into "lisamessage" doc mess
