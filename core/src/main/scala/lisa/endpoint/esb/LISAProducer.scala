@@ -3,6 +3,8 @@ package lisa.endpoint.esb
 import akka.actor._
 import akka.camel._
 import akka.event.Logging
+import org.json4s._
+import org.json4s.native.JsonMethods._
 
 import lisa.endpoint.message._
 
@@ -13,13 +15,13 @@ class LISAProducer(topic: String) extends Actor {
   
   def receive = {
     case LISAMessage(body, header) => {
-      sendCamel(LISAMessage(body), header)
+      sendCamel(body, header)
     }
   }
   
-  def sendCamel(body: LISAMessage, header: Map[String, Any]) = {
+  def sendCamel(body: JObject, header: Map[String, Any]) = {
     log.debug("Sending to "+topic+" mess:"+ body)
-    cprod ! CamelMessage(body, header)
+    cprod ! CamelMessage(compact(render(body)), header)
   }
 }
 

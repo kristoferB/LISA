@@ -25,7 +25,7 @@ abstract class LISAEndPoint(prop : LISAEndPointProperties) extends Actor{
   
   val logg = Logging(context.system, this)
      
-  val camel = CamelExtension(context.system)
+  //val camel = CamelExtension(context.system)
   private val topics = prop.topics map {(topic) =>
     val c = context.actorOf(Props(classOf[LISAConsumer], "topic:"+ topic))
     val p = context.actorOf(Props(classOf[LISAProducer], "topic:"+ topic))

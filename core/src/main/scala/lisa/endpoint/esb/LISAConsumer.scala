@@ -4,6 +4,8 @@ import akka.actor._
 import akka.camel._
 import akka.actor.Status.Failure
 import akka.event.Logging
+import org.json4s._
+import org.json4s.native.JsonMethods._
 
 import lisa.endpoint.message._
 
@@ -24,12 +26,24 @@ class LISAConsumer(topic: String) extends Actor with Consumer {
     case msg: CamelMessage => {
       log.debug("recevied this camelMessage: "+msg)
       msg.body match {
-        case lb: LISAMessage => {
-          val lisaMessage = LISAMessage(lb.body, msg.headers filter(_._2 != null))
-          listeners foreach ((listner)=> {
-            if (listner.messageFilter(lisaMessage)) 
-              listner.ref ! lisaMessage
-          })
+        case lb: String => {
+          log.debug(s"Consumer ${self} got a message: $lb")
+          tryWithOption(parse(lb)) map {
+            case json: JObject =>
+              val lisaMessage = LISAMessage(json, msg.headers filter(_._2 != null))
+              listeners foreach ((listner)=> {
+                if (listner.messageFilter(lisaMessage))
+                  listner.ref ! lisaMessage
+              })
+            case json: JValue => {
+              val lisaMessage = LISAMessage(JObject(List("key"->json)), msg.headers filter(_._2 != null))
+              listeners foreach ((listner)=> {
+                if (listner.messageFilter(lisaMessage))
+                  listner.ref ! lisaMessage
+              })
+            }
+          }
+
         }
         case _ => {
           log.debug("Didn't recevied a LISAMessage")
@@ -39,6 +53,14 @@ class LISAConsumer(topic: String) extends Actor with Consumer {
     }
     case r: Listen => listeners = listeners + r
     case UnListen(r) => listeners = listeners filter (_.ref != r)
+  }
+
+  def tryWithOption[T](t: => T): Option[T] = {
+    try {
+      Some(t)
+    } catch {
+      case e: Exception => None
+    }
   }
 }
 
