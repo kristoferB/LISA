@@ -2,7 +2,8 @@ package lisa.endpoint.esb
 
 import akka.actor._
 import akka.camel._
-import org.apache.activemq.camel.component.ActiveMQComponent
+import org.json4s.JsonAST.JObject
+import org.scalatest.concurrent.PatienceConfiguration
 import scala.concurrent.duration._
 import scala.concurrent.Future
 import akka.testkit.TestKit
@@ -17,41 +18,50 @@ class EndPointTest(_system: ActorSystem) extends TestKit(_system) with ImplicitS
 with WordSpecLike with Matchers with BeforeAndAfterAll {
  
   def this() = this(ActorSystem("EndPointTest"))
-  
-  val camel = CamelExtension(system)
-      
-  val amqUrl = s"nio://localhost:61616"
-  camel.context.addComponent("activemq", ActiveMQComponent.activeMQComponent(amqUrl))
- 
-  override def afterAll {
-    TestKit.shutdownActorSystem(system)
-  }  
 
-//  "Example Endpoint" must {
-//
-//    "modify the message" in {
-//      import lisa.endpoint.examples._
-//      val topics = List("lisa.events", "test")
-//      val es = system.actorOf(Props(classOf[ExampleEndPoint], LISAEndPointProperties("example", topics, _=>true)))
-//      val cons = system.actorOf(Props(classOf[LISAConsumer], "topic:test"))
-//      val cons2 = system.actorOf(Props(classOf[LISAConsumer], "topic:lisa.events"))
-//      val prod4 = system.actorOf(Props(classOf[LISAProducer], "topic:lisa.events"))
-//
-//      import com.github.nscala_time.time.Imports._
-//      val now = DatePrimitive.now
-//      val probe3 = akka.testkit.TestProbe()
-//      cons ! Listen(probe3.ref)
-//
-//      prod4 ! LISAMessage("operationName" -> LISAValue("o1"), "time" -> now)
-//
-//      probe3.expectMsgPF() { case LISAMessage(b,h) => b.get("newAttribute") == Some(1) && h.get("headerinfo") == Some("Kalle") &&
-//        Some(true) == (for {
-//             lv <- b.get("time")
-//             x <- lv.asDate
-//           } yield now.value < x )
-//      }
-//    }
-//  }
+  import scala.concurrent.ExecutionContext.Implicits.global
+
+  import org.apache.activemq.camel.component.ActiveMQComponent
+  val camel = CamelExtension(system)
+  camel.context.addComponent("activemq", ActiveMQComponent.activeMQComponent(
+     "tcp://localhost:61616"))
+
+
+  import lisa.endpoint.examples._
+  val consumetopics = List("lisa.events")
+  val producetopics = List("upd")
+  val es = system.actorOf(Props(classOf[ExampleEndPoint], LISAEndPointProperties("example", consumetopics, producetopics)))
+  val cons = system.actorOf(Props(classOf[LISAConsumer], "topic:upd"), "cons")
+  val prod = system.actorOf(Props(classOf[LISAProducer], "topic:lisa.events", JObject()), "prod4")
+
+
+  override def afterAll = {
+    TestKit.shutdownActorSystem(system)
+  }
+
+  "Example Endpoint" must {
+    import lisa.endpoint.message.MessageLogic._
+
+    "modify the message" in {
+
+
+      val now = timeStamp
+      val probe3 = akka.testkit.TestProbe()
+      cons ! Listen(probe3.ref)
+
+      prod ! LISAMessage("operationName" -> "o1", "time" -> now).addHeader(org.apache.activemq.ScheduledMessage.AMQ_SCHEDULED_DELAY -> 3000)
+      import com.github.nscala_time.time.Imports._
+      probe3.expectMsgPF() { case mess @ LISAMessage(b,h) =>
+        println("got message: "+mess)
+        mess.getAs[String]("newAttribute") == Some(1) &&
+          h.get("headerInfo") == Some("Kalle") &&
+          mess.getAs[String]("operationName") == Some("o1") &&
+        Some(true) == (for {
+             lv <- mess.getAs[DateTime]("time")
+           } yield now.getAs[DateTime].map(_ < lv) )
+      }
+    }
+  }
 
 }
 

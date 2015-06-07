@@ -28,32 +28,45 @@ class LISAConsumer(topic: String) extends Actor with Consumer {
       msg.body match {
         case lb: String => {
           log.debug(s"Consumer ${self} got a message: $lb")
-          tryWithOption(parse(lb)) map {
-            case json: JObject =>
-              val lisaMessage = LISAMessage(json, msg.headers filter(_._2 != null))
-              listeners foreach ((listner)=> {
-                if (listner.messageFilter(lisaMessage))
-                  listner.ref ! lisaMessage
-              })
-            case json: JValue => {
-              val lisaMessage = LISAMessage(JObject(List("key"->json)), msg.headers filter(_._2 != null))
-              listeners foreach ((listner)=> {
-                if (listner.messageFilter(lisaMessage))
-                  listner.ref ! lisaMessage
-              })
-            }
-          }
+          val header = parseHeader(msg.headers)
 
+          tryWithOption(parse(lb)) match {
+            case Some(json: JObject) =>
+              val lisaMessage = LISAMessage(json, header)
+              toListner(lisaMessage)
+            case Some(json: JValue) => {
+              val lisaMessage = LISAMessage(JObject(List("nokey"->json)), header)
+              toListner(lisaMessage)
+            }
+            case None => toListnerError(msg)
+          }
         }
-        case _ => {
-          log.debug("Didn't recevied a LISAMessage")
-          sender ! Failure(new Exception("Message " + msg + " is not a LISAMessage"))
+        case x => {
+          toListnerError(msg)
         }
       }
     }
     case r: Listen => listeners = listeners + r
-    case UnListen(r) => listeners = listeners filter (_.ref != r)
+    case UnListen(r) => listeners = listeners.filter(_.ref != r)
   }
+
+  def parseHeader(headers: Map[String, Any]): Map[String, Any] = {
+    val h = (for {
+      h <- tryWithOption(headers("LISAHistory").asInstanceOf[String])
+      list <- tryWithOption(parse(h))
+    } yield list).getOrElse(JArray(List()))
+    headers.filter(_._2 != null).+("LISAHistory"-> h)
+  }
+
+  def toListner(mess: LISAMessage) = listeners foreach {(listner)=>
+      if (listner.messageFilter(mess))
+        listner.ref ! mess
+  }
+  def toListnerError(f: Any) = listeners foreach {(listner)=>
+    log.debug("Didn't recevied a LISAMessage: "+f)
+    listner.ref ! Failure(new Exception("Message " + f + " is not a LISAMessage"))
+  }
+
 
   def tryWithOption[T](t: => T): Option[T] = {
     try {

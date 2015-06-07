@@ -22,7 +22,16 @@ resolvers +=
 lazy val commonSettings = Seq(
   version := "1.0.0",
   scalaVersion := "2.11.6",
-  resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/Releases"
+  resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/Releases",
+  scalacOptions  := Seq(
+    "-encoding", "utf8",
+    "-feature",
+    "-unchecked",
+    "-deprecation",
+    "-target:jvm-1.8",
+    "-language:implicitConversions",
+    "-language:postfixOps"
+  )
 )
 
 

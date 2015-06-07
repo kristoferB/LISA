@@ -116,13 +116,13 @@ class MessageTest extends FlatSpec with Matchers{
     res shouldEqual List()
   }
   "A LISAMessage" should "find objects with fields" in {
-    val res = mess.findObjectsWithField(List(("key3", JInt(1))))
+    val res = mess.findObjectsWithFields(List(("key3", JInt(1))))
     res shouldEqual List(
       ("sub1",JObject(
         List(("key3",JInt(1)), ("key4",JBool(false))))))
   }
   "A LISAMessage" should "find objects with fields as" in {
-    val res = mess.findObjectsWithFieldAs[SUBTest](List(("key3", JInt(1))))
+    val res = mess.findObjectsWithFieldsAs[SUBTest](List(("key3", JInt(1))))
     res shouldEqual List(
       ("sub1", (SUBTest(1, false))))
   }

@@ -13,8 +13,8 @@ case class ReadSettings(start: String)
  *
  */
 class DbEaterEP(prop: LISAEndPointProperties) extends LISAEndPoint(prop) {
-  val rawTopic = prop.topics(0)
-  val filledTopic = prop.topics(1)
+  val rawTopic = prop.consumeTopics(0)
+  val filledTopic = prop.consumeTopics(1)
 
   def receive = {
     case "go" => {

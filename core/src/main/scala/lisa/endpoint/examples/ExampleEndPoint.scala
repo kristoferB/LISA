@@ -17,10 +17,9 @@ class ExampleEndPoint(prop : LISAEndPointProperties) extends LISAEndPoint(prop) 
     case mess: LISAMessage => {
       import lisa.endpoint.message.MessageLogic._
       val topic = mess.getTopic // The topic the message was sent to
-      
-      implicit val formats = MessageLogic.formats
+
       val updatedMessage1 = mess + ("newAttribute" -> 1) ~ ("newAttribute2" -> 1)
-      val updatedMessage2 = updatedMessage1 + ("newAttribute3" -> 1)
+      val updatedMessage2 = updatedMessage1 + ("newAttribute3" -> 1) addHeader("headerInfo"->"kalle")
 
 
       // Examples

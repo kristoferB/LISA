@@ -17,7 +17,7 @@ class ElasticSearchEP(prop: LISAEndPointProperties) extends LISAEndPoint(prop) {
 
   var count = 0
   
-  prop.topics foreach { topic =>
+  prop.consumeTopics foreach { topic =>
     client execute {
       create index topic.toLowerCase()
     }

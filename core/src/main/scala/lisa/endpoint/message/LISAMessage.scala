@@ -2,11 +2,17 @@ package lisa.endpoint.message
 
 
 import org.json4s._
-import org.json4s.native.JsonMethods._
-import org.json4s.JsonDSL._
-import com.github.nscala_time.time.Imports._
 
 case class LISAMessage(body: JObject, header: Map[String, Any] = Map())
+
+case object LISAMessage {
+  def apply[T](pair: (String, T)*)(implicit formats : org.json4s.Formats, mf : scala.reflect.Manifest[T]): LISAMessage = {
+    val res = pair.map{
+      case (key, value) => key -> Extraction.decompose(value)
+    }
+    LISAMessage(JObject(res.toList))
+  }
+}
 
 object MessageLogic {
 
@@ -15,10 +21,9 @@ object MessageLogic {
     override val customSerializers: List[Serializer[_]] = org.json4s.ext.JodaTimeSerializers.all :+ org.json4s.ext.UUIDSerializer
     override val dateFormatter = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
   }
-  def formats = new LISAFormats {}
+  implicit val format = new LISAFormats {}
 
   def timeStamp = {
-    implicit val f = new LISAFormats {}
     Extraction.decompose(org.joda.time.DateTime.now)
   }
 
@@ -30,7 +35,10 @@ object MessageLogic {
     }
 
   }
+
+
   implicit class messLogic(mess: LISAMessage) {
+
     def +[T](kv: (String, T)*)(implicit formats : org.json4s.Formats, mf : scala.reflect.Manifest[T]) = {
       val j = kv map(x => x._1 -> Extraction.decompose(x._2))
       mess.copy(body = mess.body.copy(obj = mess.body.obj ++ j))
@@ -54,7 +62,10 @@ object MessageLogic {
       case x: JValue => List(x)
     }
     def findAs[T](key: String)(implicit formats : org.json4s.Formats, mf : scala.reflect.Manifest[T]) = {
-      find(key).map(_.extract[T])
+      for {
+        x <- find(key)
+        v <- tryWithOption(x.extract[T])
+      } yield v
     }
     def findObjectsWithKeys(keys: List[String]) = {
       mess.body.filterField {
@@ -71,7 +82,7 @@ object MessageLogic {
         t <- tryWithOption(value._2.extract[T])
       } yield (value._1, t)
     }
-    def findObjectsWithField(fields: List[JField]) = {
+    def findObjectsWithFields(fields: List[JField]) = {
       mess.body.filterField {
         case JField(key, JObject(xs)) => {
           fields.forall(xs contains)
@@ -79,9 +90,9 @@ object MessageLogic {
         case _ => false
       }
     }
-    def findObjectsWithFieldAs[T](fields: List[JField])(implicit formats : org.json4s.Formats, mf : scala.reflect.Manifest[T]) = {
+    def findObjectsWithFieldsAs[T](fields: List[JField])(implicit formats : org.json4s.Formats, mf : scala.reflect.Manifest[T]) = {
       for {
-        value <- findObjectsWithField(fields)
+        value <- findObjectsWithFields(fields)
         t <- tryWithOption(value._2.extract[T])
       } yield (value._1, t)
     }
@@ -90,6 +101,9 @@ object MessageLogic {
         case Some(t) => t.getTopicName()
         case None => ""
       }
+    }
+    def contains(key: String) = {
+      !find(key).isEmpty
     }
   }
 

@@ -6,6 +6,17 @@ import akka.event.Logging
 import org.apache.activemq.camel.component.ActiveMQComponent
 
 import lisa.endpoint.message._
+import lisa.endpoint.message.MessageLogic._
+import org.json4s._
+import org.json4s.native.JsonMethods._
+
+case class LISAEndPointProperties(
+             endpointName : String,
+             consumeTopics : List[String],
+             produceTopics : List[String] = List(),
+             messageFilter: LISAMessage => Boolean = (_ => true),
+             attributes: JObject = JObject(List())
+)
 
 /**
  * This is the Scala endpoint that you can use as an endpoint for the LISA ESB
@@ -22,23 +33,37 @@ import lisa.endpoint.message._
  * 
  */
 abstract class LISAEndPoint(prop : LISAEndPointProperties) extends Actor{
-  
   val logg = Logging(context.system, this)
+  val epAttributes = {
+    val ip = java.net.InetAddress.getLocalHost.getHostAddress
+    JObject(prop.attributes.obj ++ List(
+      "ip" -> JString(ip),
+      "name" -> JString(prop.endpointName),
+      "consume" -> JArray(prop.consumeTopics.map(JString.apply)),
+      "produce" -> JArray(prop.produceTopics.map(JString.apply))
+    ))
+  }
+
      
   //val camel = CamelExtension(context.system)
-  private val topics = prop.topics map {(topic) =>
+  private val consumeT = prop.consumeTopics map {(topic) =>
     val c = context.actorOf(Props(classOf[LISAConsumer], "topic:"+ topic))
-    val p = context.actorOf(Props(classOf[LISAProducer], "topic:"+ topic))
     c ! Listen(self, prop.messageFilter)
-    topic -> ProdCons(p, c)
+    topic -> c
+  } toMap
+
+  //val camel = CamelExtension(context.system)
+  private val produceT = {if (prop.produceTopics.isEmpty) prop.consumeTopics else prop.produceTopics} map {(topic) =>
+    val p = context.actorOf(Props(classOf[LISAProducer], "topic:"+ topic, epAttributes))
+    topic -> p
   } toMap
   
   def sendTo(topicName: String): ActorRef = {
-    topics(topicName).producer
+    produceT(topicName)
   }
   
   def send: ProducerHolder = {
-    val p = topics map (_._2.producer)
+    val p = produceT map (_._2)
     ProducerHolder(p.toList)
   }
 
@@ -49,12 +74,14 @@ abstract class LISAEndPoint(prop : LISAEndPointProperties) extends Actor{
    */
   def produceToTopic(topic: String) = {
     if (!tempTopicMap.contains(topic)){
-      tempTopicMap = tempTopicMap + (topic ->context.actorOf(Props(classOf[LISAProducer], "topic:"+ topic)))
+      val newAttr = epAttributes.transformField{
+        case ("produce", _) => "produce" -> JArray(List(JString(topic)))
+      }
+      tempTopicMap = tempTopicMap + (topic ->context.actorOf(Props(classOf[LISAProducer], "topic:"+ topic, newAttr)))
     }
     tempTopicMap(topic)
   }
   
-  private case class ProdCons(producer: ActorRef, consumer: ActorRef)
 }
 
 /**
