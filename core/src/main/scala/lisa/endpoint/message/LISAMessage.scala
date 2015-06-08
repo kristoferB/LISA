@@ -1,6 +1,7 @@
 package lisa.endpoint.message
 
 
+import org.joda.time.DateTime
 import org.json4s._
 
 case class LISAMessage(body: JObject, header: Map[String, Any] = Map())
@@ -61,6 +62,12 @@ object MessageLogic {
       mess.body \ key
     }
 
+    def getAs[T](implicit formats : org.json4s.Formats, mf : scala.reflect.Manifest[T]) = {
+      tryWithOption(
+        mess.body.extract[T]
+      )
+    }
+
     def getAs[T](key: String)(implicit formats : org.json4s.Formats, mf : scala.reflect.Manifest[T]) = {
       val res = mess.body \ key
       tryWithOption(
@@ -110,6 +117,11 @@ object MessageLogic {
       tryWithOption(mess.header("JMSDestination").asInstanceOf[javax.jms.Topic]) match {
         case Some(t) => t.getTopicName()
         case None => ""
+      }
+    }
+    def getHeaderTime: Option[DateTime] = {
+      tryWithOption(mess.header("JMSTimestamp").asInstanceOf[Long]) map { t =>
+        new org.joda.time.DateTime(new java.util.Date(t))
       }
     }
     def contains(key: String) = {

@@ -78,7 +78,7 @@ abstract class LISAEndPoint(prop : LISAEndPointProperties) extends Actor {
     produceT(topicName)
   }
   
-  def send: ProducerHolder = {
+  def topics: ProducerHolder = {
     val p = produceT map (_._2)
     ProducerHolder(p.toList)
   }

@@ -35,7 +35,7 @@ class LogEaterEP(prop: LISAEndPointProperties) extends LISAEndPoint(prop) {
       lines foreach { l =>
         val split = (l split file.divider) map(_.trim()) toList
         val convert = file.logType.convert(split)
-        convert.foreach(send ! _)
+        convert.foreach(topics ! _)
       }
 
       //context.system.shutdown()

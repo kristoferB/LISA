@@ -28,7 +28,7 @@ class ProductFold(prop: LISAEndPointProperties, completeOperationType: String) e
     }
     case FoldComplete(id, mess) => {
       foldMap = foldMap - id
-      send ! mess
+      topics ! mess
     }
   }
 }

@@ -24,7 +24,7 @@ class ExampleEndPoint(prop : LISAEndPointProperties) extends LISAEndPoint(prop) 
 
       // Examples
       //sendTo("test") ! mess		// sends message back to a specific topic. throws if topic is not defined
-      send ! updatedMessage1 + ("time" -> MessageLogic.timeStamp)		// send mess back to all topics
+      topics ! updatedMessage1 + ("time" -> MessageLogic.timeStamp)		// send mess back to all topics
     }
   }
 }
