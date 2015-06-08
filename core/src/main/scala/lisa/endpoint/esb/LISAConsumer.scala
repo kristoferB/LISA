@@ -23,11 +23,8 @@ class LISAConsumer(topic: String) extends Actor with Consumer {
   def receive = {
     case msg: CamelMessage => {
       log.debug("recevied this camelMessage: "+msg)
-      listeners foreach ((listner)=> {
-              listner.ref ! msg
-          })
       msg.body match {
-        case lb: LISAMessage => {//This Case can never be true : Camel Message has not LISA Body
+        case lb: LISAMessage => {
           val lisaMessage = LISAMessage(lb.body, msg.headers filter(_._2 != null))
           listeners foreach ((listner)=> {
             if (listner.messageFilter(lisaMessage)) 
@@ -35,6 +32,9 @@ class LISAConsumer(topic: String) extends Actor with Consumer {
           })
         }
         case _ => {
+          listeners foreach ((listner)=> {
+          listner.ref ! msg
+          })
           log.debug("Didn't recevied a LISAMessage")
           sender ! Failure(new Exception("Message " + msg + " is not a LISAMessage"))
         }

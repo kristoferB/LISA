@@ -14,7 +14,7 @@ class ElasticSearchEP(prop: LISAEndPointProperties) extends LISAEndPoint(prop) {
   
   import com.sksamuel.elastic4s.ElasticClient
   import com.sksamuel.elastic4s.ElasticDsl._
-  val client = ElasticClient.remote("192.168.89.133", 9300)
+  val client = ElasticClient.remote("10.4.9.9", 9300)
 
   var count = 0
   
@@ -25,10 +25,11 @@ class ElasticSearchEP(prop: LISAEndPointProperties) extends LISAEndPoint(prop) {
   
   def receive = {
     case mess: LISAMessage => {
+    	println(mess)
     	sendToES(mess)
     }
     case mess : CamelMessage => {
-      sendToES(LISAMessage(parseJson(mess.body),mess.headers))    
+      sendToES(LISAMessage(parseJson(mess.body,mess.headers),mess.headers))    
     }
   }
   
@@ -47,18 +48,37 @@ class ElasticSearchEP(prop: LISAEndPointProperties) extends LISAEndPoint(prop) {
     //println(topic+" no:"+count)
     //count += 1
     //log.debug("Sending to ES on : "+topic+" mess:" + mess)
-   }
+   	}
   
-  def parseJson(body: Any) : Map[String,LISAValue] = {
+  def parseJson(body: Any, header : Map[String,Any]) : Map[String,LISAValue] = {    
+    import org.joda.time._
+    import org.joda.convert.FromString._
+    import org.joda.time.format._
+    import org.joda.time.format.DateTimeFormatter._
     val messbody = body.asInstanceOf[String].filterNot("\n\r{}".toSet)
+    var map : Map[String,LISAValue] = Map.empty
+    val splitArray = messbody.split(",")
+    for(element <- splitArray) {
+      val lineSplit = element.split("\"")
+      map +=  (lineSplit(1) -> LISAValue(lineSplit(3)))    
+    	}
+
+      val dateString = header.get("JMSTimestamp").get.toString()
+      val dateLong : Long = dateString.toLong
+      val time = new DateTime(dateLong)      
+      val timeString = time.toString()
+      map = map + (("date")  ->  LISAValue(timeString)) 
+      map
+  	}
+    /*val messbody = body.asInstanceOf[String].filterNot("\n\r{}".toSet)
     var map : Map[String,LISAValue] = Map.empty
     val splitArray = messbody.split(",")
     for(element <- splitArray) {
       val lineSplit = element.split("\"")
       map = map + (lineSplit(1) -> LISAValue(lineSplit(3)))    
     }
-      map    
-  }
+      map  
+  }*/  
   
   
 }

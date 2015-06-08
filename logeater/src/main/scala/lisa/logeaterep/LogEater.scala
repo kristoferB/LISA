@@ -10,13 +10,13 @@ import java.net.InetSocketAddress
 object LogEater extends App {
   val system = ActorSystem("logEater")
   val camel = CamelExtension(system)  
-  val amqUrl = s"nio://localhost:61616"
+  val amqUrl = s"nio://192.168.89.130:61616"
   camel.context.addComponent("activemq", ActiveMQComponent.activeMQComponent(amqUrl))
   
   val le = system.actorOf(LogEaterEP.props(List("operationevents")))
-  val mc = system.actorOf(MessageConsumerTest.props(List("operationevents", "resourcefold")))
-  //le ! LogFile("logs/prodE.csv", ScaniaProductEvents)
-  le ! LogFile("logeater/logs/prodEsmall.csv", ScaniaProductEvents)
+  //val mc = system.actorOf(MessageConsumerTest.props(List("operationevents", "resourcefold")))
+  le ! LogFile("logs/prodE.csv", ScaniaProductEvents)
+  //le ! LogFile("logeater/logs/prodEsmall.csv", ScaniaProductEvents)
   
   //val act = system.actorOf(LogEaterEP.props(List("stateevents")))
   //val mc = system.actorOf(MessageConsumerTest.props(List("stateevents")))
