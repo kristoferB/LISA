@@ -16,5 +16,5 @@ class MessageConsumerTest(prop: LISAEndPointProperties) extends LISAEndPoint(pro
 }
 
 object MessageConsumerTest {
-  def props(topics: List[String]) = Props(classOf[MessageConsumerTest], LISAEndPointProperties("MessageConsumerTest", topics, _=> true))
+  def props(topics: List[String]) = Props(classOf[MessageConsumerTest], LISAEndPointProperties("MessageConsumerTest", topics, List(), _=> true))
 }

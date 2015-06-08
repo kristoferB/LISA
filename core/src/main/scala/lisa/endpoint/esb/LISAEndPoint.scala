@@ -18,6 +18,21 @@ case class LISAEndPointProperties(
              attributes: JObject = JObject(List())
 )
 
+object LISAEndPoint {
+  def initial(system: ActorSystem) = {
+    val conf = com.typesafe.config.ConfigFactory.load.getConfig("lisa.buss")
+    val bussIP = conf.getString("ip")
+    val bussPort = conf.getString("port")
+
+    println(s"Connecting to buss on ip: $bussIP and port: $bussPort defined in lisa.buss.ip and .port")
+
+    import org.apache.activemq.camel.component.ActiveMQComponent
+    val camel = CamelExtension(system)
+    camel.context.addComponent("activemq", ActiveMQComponent.activeMQComponent(
+      s"tcp://$bussIP:$bussPort"))
+  }
+}
+
 /**
  * This is the Scala endpoint that you can use as an endpoint for the LISA ESB
  * 
@@ -32,7 +47,8 @@ case class LISAEndPointProperties(
  * }
  * 
  */
-abstract class LISAEndPoint(prop : LISAEndPointProperties) extends Actor{
+abstract class LISAEndPoint(prop : LISAEndPointProperties) extends Actor {
+
   val logg = Logging(context.system, this)
   val epAttributes = {
     val ip = java.net.InetAddress.getLocalHost.getHostAddress

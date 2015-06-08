@@ -8,14 +8,13 @@ import lisa.endpoint.esb._
 
 object MessageFold extends App {
   val system = ActorSystem("messageFold")
-  val camel = CamelExtension(system)  
-  val amqUrl = s"nio://localhost:61616"
-  camel.context.addComponent("activemq", ActiveMQComponent.activeMQComponent(amqUrl))
+  LISAEndPoint.initial(system)
+
   
-  //val mc = system.actorOf(ProductFold.props(List("operationevents"), "productfold", "merge"))
+  val mc = system.actorOf(ProductFold.props(List("operationevents"), List("productfold"), "merge"))
   
   //val rc = system.actorOf(PositionFold.props(List("operationevents"), "resourcefold"))
   
-  val sf = system.actorOf(StateFold.props(List("stateevents"), "statefold"))
+  //val sf = system.actorOf(StateFold.props(List("stateevents"), "statefold"))
 
 }

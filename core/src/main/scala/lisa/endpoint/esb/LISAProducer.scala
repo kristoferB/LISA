@@ -13,14 +13,12 @@ class LISAProducer(topic: String, endpointInfo: JObject) extends Actor with Prod
   val log = Logging(context.system, this)
 
   override def transformOutgoingMessage(msg: Any) = {
-    println(s"WE SHOULD TRANSFORM: $msg")
     val cm = msg match {
       case msg: CamelMessage => msg
       case LISAMessage(body, header) => CamelMessage(compact(render(body)), header)
       case k => CamelMessage(k, Map())
     }
     val t = addHistory(cm)
-    println(s"NU SKALL VI SKICKS  $t")
     t
   }
 

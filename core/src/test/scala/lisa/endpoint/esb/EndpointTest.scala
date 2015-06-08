@@ -3,7 +3,6 @@ package lisa.endpoint.esb
 import akka.actor._
 import akka.camel._
 import org.json4s.JsonAST.JObject
-import org.scalatest.concurrent.PatienceConfiguration
 import scala.concurrent.duration._
 import scala.concurrent.Future
 import akka.testkit.TestKit
@@ -21,10 +20,7 @@ with WordSpecLike with Matchers with BeforeAndAfterAll {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  import org.apache.activemq.camel.component.ActiveMQComponent
-  val camel = CamelExtension(system)
-  camel.context.addComponent("activemq", ActiveMQComponent.activeMQComponent(
-     "tcp://localhost:61616"))
+  LISAEndPoint.initial(system)
 
 
   import lisa.endpoint.examples._

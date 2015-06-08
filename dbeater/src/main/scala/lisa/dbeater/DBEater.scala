@@ -1,18 +1,14 @@
 package lisa.dbeater
 
 import akka.actor._
-import akka.camel._
-import org.apache.activemq.camel.component.ActiveMQComponent
 import lisa.endpoint.esb._
-import lisa.endpoint.message._
-import java.sql.Timestamp
 
 
-object DBEater extends App {
+object DBEater extends App{
   val system = ActorSystem("dbEater")
-  val camel = CamelExtension(system)  
-  val amqUrl = s"nio://localhost:61616"
-  camel.context.addComponent("activemq", ActiveMQComponent.activeMQComponent(amqUrl))
+  LISAEndPoint.initial(system)
+
+
 
   val le = system.actorOf(DBEaterEP.props("positionraw", "positionfilled"))
   //val mc = system.actorOf(lisa.logeaterep.MessageConsumerTest.props(List("productfold2", "positionfold2")))

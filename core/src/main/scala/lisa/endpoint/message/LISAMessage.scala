@@ -12,6 +12,13 @@ case object LISAMessage {
     }
     LISAMessage(JObject(res.toList))
   }
+
+  def body[T](pair: (String, T)*)(implicit formats : org.json4s.Formats, mf : scala.reflect.Manifest[T]): JObject = {
+    val res = pair.map{
+      case (key, value) => key -> Extraction.decompose(value)
+    }
+    JObject(res.toList)
+  }
 }
 
 object MessageLogic {
@@ -33,7 +40,6 @@ object MessageLogic {
         json.extract[T]
       )
     }
-
   }
 
 
@@ -50,6 +56,10 @@ object MessageLogic {
       mess.copy(header = mess.header + kv)
     }
 
+
+    def get(key: String) = {
+      mess.body \ key
+    }
 
     def getAs[T](key: String)(implicit formats : org.json4s.Formats, mf : scala.reflect.Manifest[T]) = {
       val res = mess.body \ key

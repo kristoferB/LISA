@@ -1,17 +1,23 @@
 package lisa.logeaterep
 
 import akka.actor._
-import akka.io.Tcp._
 import lisa.endpoint.message._
 import lisa.endpoint.esb._
-import java.net.InetSocketAddress
-import akka.util.ByteString
-import akka.event.Logging
+import org.json4s._
+import lisa.endpoint.message.MessageLogic._
 
 case class LogFile(fileName: String, logType: LogType, divider: Char = ';')
 
 sealed abstract trait LogType {
-  def convert(list: List[String]): Map[String, LISAValue]
+  def convert(list: List[String]): Option[LISAMessage]
+
+  def tryWithOption[T](t: => T): Option[T] = {
+    try {
+      Some(t)
+    } catch {
+      case e: Exception => None
+    }
+  }
 }
 
 /**
@@ -25,20 +31,17 @@ sealed abstract trait LogType {
 class LogEaterEP(prop: LISAEndPointProperties) extends LISAEndPoint(prop) {
   def receive = {
     case file: LogFile => {
-      eatFile(file.fileName) foreach {line: String => eatLine(line, file.divider, file.logType)}
+      val lines = eatFile(file.fileName)
+      lines foreach { l =>
+        val split = (l split file.divider) map(_.trim()) toList
+        val convert = file.logType.convert(split)
+        convert.foreach(send ! _)
+      }
+
       //context.system.shutdown()
     }
-    case HermleEvent(line, divider, logType) => {
-    	eatLine(line, divider, logType)
-    }
   }
-  
-  def eatLine(l: String, divider: Char, logType: LogType) = {
-     val split = (l split divider) map(_.trim()) toList
-     val converted = logType.convert(split)
-     if (!converted.isEmpty) sendLisa(converted)  	
-  }
-  
+
   // maybe change this to handle huge files later
   def eatFile(filename: String): List[String] = {
     import scala.io.Source
@@ -57,147 +60,85 @@ class LogEaterEP(prop: LISAEndPointProperties) extends LISAEndPoint(prop) {
       }
     }
   }
-
-  def sendLisa(map: Map[String, LISAValue]) = {   
-    send ! LISAMessage(map)
-  }
-
 }
 
 object LogEaterEP {
-  def props(topics: List[String]) = Props(classOf[LogEaterEP], LISAEndPointProperties("logEater", topics, _=>false))
-  
+  def props(produceTopics: List[String]) = Props(classOf[LogEaterEP], LISAEndPointProperties("logEater", List(), produceTopics, _=>false))
 }
 
 case object ScaniaProductEvents extends LogType {
-  def convert(list: List[String]): Map[String, LISAValue] = {
-    def req(list: List[String], keys: List[(String, String => Option[LISAValue])]): Map[String, Option[LISAValue]] = {
-      if (keys.isEmpty || list.isEmpty) Map[String, Option[LISAValue]]()
-      else {
-        req(list.tail, keys.tail) + (keys.head._1 -> keys.head._2(list.head))
-      }
-    }
+  def convert(list: List[String]): Option[LISAMessage] = {
+    val keyList = List(
+      "eventID",
+      "productID",
+      "eventType",
+      "position",
+      "starttime",
+      "stoptime",
+      "duration",
+      "comment",
+      "status",
+      "opertionStatus"
+    )
 
-    val keys: List[(String, String => Option[LISAValue])] = List(
-      ("eventID", (s: String) => tryWithOption(IntPrimitive(s.toInt))),
-      ("productID", (s: String) => Some(StringPrimitive(s.toUpperCase()))),
-      ("eventType", (s: String) => tryWithOption(IntPrimitive(s.toInt))),
-      ("position", (s: String) => tryWithOption(IntPrimitive(s.toInt))),
-      ("starttime", (s: String) => DatePrimitive.stringToDate(s, "yyyy-MM-dd HH:mm:ss.SSS")),
-      ("stoptime", (s: String) => DatePrimitive.stringToDate(s, "yyyy-MM-dd HH:mm:ss.SSS")),
-      ("duration", (s: String) => tryWithOption(IntPrimitive(s.toInt))),
-      ("comment", (s: String) => tryWithOption(IntPrimitive(s.toInt))),
-      ("status", (s: String) => tryWithOption(IntPrimitive(s.toInt))),
-      ("opertionStatus", (s: String) => tryWithOption(IntPrimitive(s.toInt))))
+    val keyValue = for {
+      zip <- keyList zip list if zip._2 != "NULL"
+      json <- tryWithOption(Extraction.decompose(zip._2))
+    } yield zip._1 -> json
 
-    val result = req(list, keys)
-    
-    val filtered = for {
-      k <- result
-      v <- k._2
-    } yield (k._1 -> v)
-    
-    //val id = LISAValue(java.util.UUID.randomUUID().toString())
-    val id = LISAValue(filtered("eventID").asInstanceOf[IntPrimitive].value.toString)
-    
-    filtered ++ Map("operationType" -> StringPrimitive(if (filtered.contains("stoptime")) "transport" else "merge"), "lisaID"->id) 
-    	
-  }
+    if (keyValue.nonEmpty){
+      val keys = keyValue.toMap
+      val id = keys("eventID")
+      val opType = if (keys.contains("stoptime")) "transport" else "merge"
+      Some(LISAMessage(JObject(keyValue)) + ("operationType"-> opType) + ("lisaID"-> id))
+    } else None
 
-  def tryWithOption[T](t: => T): Option[T] = {
-    try {
-      Some(t)
-    } catch {
-      case e: Exception => None
-    }
   }
 }
 
 
 case object ScaniaResourceEvents extends LogType {
-  def convert(list: List[String]): Map[String, LISAValue] = {
-    def req(list: List[String], keys: List[(String, String => Option[LISAValue])]): Map[String, Option[LISAValue]] = {
-      if (keys.isEmpty || list.isEmpty) Map[String, Option[LISAValue]]()
-      else {
-        req(list.tail, keys.tail) + (keys.head._1 -> keys.head._2(list.head))
+  def convert(list: List[String]): Option[LISAMessage] = {
+    val keyList = List(
+      "eventID",
+      "machineID",
+      "eventType",
+      "starttime",
+      "stoptime",
+      "duration",
+      "comment",
+      "status"
+    )
+
+    val keyValue = for {
+      zip <- keyList zip list if zip._2 != "NULL"
+      json <- tryWithOption(Extraction.decompose(zip._2))
+    } yield zip._1 -> json
+
+    if (keyValue.nonEmpty){
+      val keys = keyValue.toMap
+      val id = keys("eventID")
+
+      val operationMode = keys("status") match {
+        case JInt(i) if i == 0 => JString("unavailible")
+        case JInt(i) if i == 1 => JString("operating"  )
+        case JInt(i) if i == 3 => JString("idle"       )
+        case JInt(i) if i == 5 => JString("operating"  )
+        case JInt(i) if i == 7 => JString("idle"       )
+        case JInt(i) if i == 8 => JString("down"       )
+        case x =>       JString("undefined"  )
       }
-    }
 
-    val keys: List[(String, String => Option[LISAValue])] = List(
-      ("eventID", (s: String) => tryWithOption(IntPrimitive(s.toInt))),
-      ("machineID", (s: String) => Some(StringPrimitive(s.toUpperCase()))),
-      ("eventType", (s: String) => tryWithOption(IntPrimitive(s.toInt))),
-      ("starttime", (s: String) => DatePrimitive.stringToDate(s, "yyyy-MM-dd HH:mm:ss.SSS")),
-      ("stoptime", (s: String) => DatePrimitive.stringToDate(s, "yyyy-MM-dd HH:mm:ss.SSS")),
-      ("duration", (s: String) => tryWithOption(IntPrimitive(s.toInt))),
-      ("comment", (s: String) => tryWithOption(IntPrimitive(s.toInt))),
-      ("status", (s: String) => tryWithOption(IntPrimitive(s.toInt)))
-      )
-
-    val result = req(list, keys)
-    
-    val filtered = for {
-      k <- result
-      v <- k._2
-    } yield (k._1 -> v)
-    
-    //val id = LISAValue(java.util.UUID.randomUUID().toString())
-    val id = LISAValue(filtered("eventID").asInstanceOf[IntPrimitive].value.toString)
-    
-    val operationMode = filtered("status") match {
-      case IntPrimitive(i) => i match {
-        case 0 => "unavailible"
-        case 1 => "operating"
-        case 3 => "idle"
-        case 5 => "operating"
-        case 7 => "idle"
-        case 8 => "down"
-        case _ => "undefined"
-      } case _ => "undefined"
-      
-    }
-    
-    filtered ++ Map("operationMode" -> StringPrimitive(operationMode), "lisaID"->id) 
-    	
+      Some(LISAMessage(JObject(keyValue)) + ("operationMode"-> operationMode) + ("lisaID"-> id))
+    } else None
   }
 
-  def tryWithOption[T](t: => T): Option[T] = {
-    try {
-      Some(t)
-    } catch {
-      case e: Exception => None
-    }
-  }
+
 }
 
 
-case object HermleEvents extends LogType {
-  def convert(list: List[String]): Map[String, LISAValue] = {
-    def req(list: List[String], result: Map[String, Option[LISAValue]]): Map[String, Option[LISAValue]] = {
-      list match {
-        case Nil => result
-        case x :: Nil => result
-        case key :: xs => {
-          req(xs.tail, result + (key->Some(xs.head)))
-        }
-      }
-    }
-    
-    if (list.isEmpty) Map.empty
-    else {
-      val result = Map("LogTime" -> DatePrimitive.stringToDate(list.head, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"))
-      val map = req(list.tail, result)
-      
-      val finalMap = for {
-        kv <- map
-        v <- kv._2 if kv._1 != ""
-      } yield kv._1 -> v
-      
-      if (finalMap.size < 2) Map.empty
-      else finalMap
-    }
-  }
-}
+
+
 
 /**
 2013-09-11T08:37:10.312Z|avail|AVAILABLE
@@ -215,65 +156,65 @@ case object HermleEvents extends LogType {
  * 
  */
 
-case class HermleEvent(line: String, divider: Char, logType: LogType)
-
-class HermleListener(eater: ActorRef) extends Actor {
-	val log = Logging(context.system, this)
-	
-	def receive = {
-		case Connected(local, _) => log.info("Connected to: " + local)
-		case bytes: ByteString => {
-			val message = bytes.utf8String
-			eater ! HermleEvent(message, '|', HermleEvents)
-		}
-		case message: TCPClient.TCPError => {
-			log.error("TCP Error: " + message.message)
-			context stop self
-			context.system.shutdown()
-		}
-		case message => log.warning("Unhandled: " + message)
-	}
-}
-
-object HermleListener {
-	def props(eater: ActorRef) = Props(classOf[HermleListener], eater)
-}
-
-object TCPClient {
-	def props(remote: InetSocketAddress, replies: ActorRef) = Props(classOf[TCPClient], remote, replies)
-	
-	case class TCPError(message: String)
-}
-
-class TCPClient(remote: InetSocketAddress, listener: ActorRef) extends Actor {
-	import akka.io.{IO, Tcp}
-	import context.system
-	import Tcp._
-	import TCPClient.TCPError
-	
-	IO(Tcp) ! Connect(remote)
-
-	def receive = {
-		case CommandFailed(_: Connect) =>
-			listener ! TCPError("Connect failed")
-			context stop self
-		case c @ Connected(remote, local) =>
-			listener ! c
-			val connection = sender
-			connection ! Register(self)
-			context become {
-				case data: ByteString =>
-					connection ! Write(data)
-				case CommandFailed(w: Write) =>
-					listener ! TCPError("Write failed")
-					context stop self
-				case Received(data) =>
-					listener ! data
-				case "close" =>
-					connection ! Close
-				case _: ConnectionClosed =>
-					listener ! TCPError("Connection closed")
-					context stop self
-			}
-	}
-}
+//case class HermleEvent(line: String, divider: Char, logType: LogType)
+//
+//class HermleListener(eater: ActorRef) extends Actor {
+//	val log = Logging(context.system, this)
+//
+//	def receive = {
+//		case Connected(local, _) => log.info("Connected to: " + local)
+//		case bytes: ByteString => {
+//			val message = bytes.utf8String
+//			eater ! HermleEvent(message, '|', HermleEvents)
+//		}
+//		case message: TCPClient.TCPError => {
+//			log.error("TCP Error: " + message.message)
+//			context stop self
+//			context.system.shutdown()
+//		}
+//		case message => log.warning("Unhandled: " + message)
+//	}
+//}
+//
+//object HermleListener {
+//	def props(eater: ActorRef) = Props(classOf[HermleListener], eater)
+//}
+//
+//object TCPClient {
+//	def props(remote: InetSocketAddress, replies: ActorRef) = Props(classOf[TCPClient], remote, replies)
+//
+//	case class TCPError(message: String)
+//}
+//
+//class TCPClient(remote: InetSocketAddress, listener: ActorRef) extends Actor {
+//	import akka.io.{IO, Tcp}
+//	import context.system
+//	import Tcp._
+//	import TCPClient.TCPError
+//
+//	IO(Tcp) ! Connect(remote)
+//
+//	def receive = {
+//		case CommandFailed(_: Connect) =>
+//			listener ! TCPError("Connect failed")
+//			context stop self
+//		case c @ Connected(remote, local) =>
+//			listener ! c
+//			val connection = sender
+//			connection ! Register(self)
+//			context become {
+//				case data: ByteString =>
+//					connection ! Write(data)
+//				case CommandFailed(w: Write) =>
+//					listener ! TCPError("Write failed")
+//					context stop self
+//				case Received(data) =>
+//					listener ! data
+//				case "close" =>
+//					connection ! Close
+//				case _: ConnectionClosed =>
+//					listener ! TCPError("Connection closed")
+//					context stop self
+//			}
+//	}
+//}

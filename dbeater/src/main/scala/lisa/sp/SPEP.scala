@@ -12,7 +12,7 @@ case class ReadSettings(start: String)
  *
  */
 object SPEP {
-  def props(topics: List[String]) = Props(classOf[SPEP], LISAEndPointProperties("SPEP", topics, _=>false))
+  def props(topics: List[String]) = Props(classOf[SPEP], LISAEndPointProperties("SPEP", List(), topics, _=>false))
 
 }
 

@@ -3,6 +3,7 @@ package lisa.dbeater
 import akka.actor._
 import lisa.endpoint.message._
 import lisa.endpoint.esb._
+import lisa.endpoint.message.MessageLogic._
 import java.sql.Timestamp
 import org.joda.time.DateTime
 
@@ -27,24 +28,25 @@ class DbEaterEP(prop: LISAEndPointProperties) extends LISAEndPoint(prop) {
 
       val smallPE = px
       val PEMess = smallPE map(pe=>{
-        val m = Map("eventID" -> LISAValue(pe.eventid.toString),
-          "productID" -> LISAValue(pe.productID.getOrElse("").trim().toUpperCase()),
-          "position" -> LISAValue(pe.position),
-          "starttime" -> cd(pe.startTime),
-          "stoptime" -> cd(pe.finishTime),
-          "duration" -> LISAValue(pe.durationInSeconds),
-          "lisaID" -> LISAValue(pe.eventid.toString),
-          "operationType" -> LISAValue({if (pe.finishTime.isEmpty) "merge" else "transport"})
+        val m = LISAMessage("eventID" -> (pe.eventid.toString),
+          "productID" -> (pe.productID.getOrElse("").trim().toUpperCase()),
+          "position" -> (pe.position),
+          "starttime" -> (pe.startTime),
+          "stoptime" -> (pe.finishTime),
+          "duration" -> (pe.durationInSeconds),
+          "lisaID" -> (pe.eventid.toString),
+          "operationType" -> ({if (pe.finishTime.isEmpty) "merge" else "transport"})
         )
 
         val posObj = for {
           p <- pe.position
           pObj <- posMap.get(p)
         } yield {
-          MapPrimitive(Map( "name"->LISAValue(pObj.name), "type"->LISAValue({if (pObj.positionType==1) "machine" else "transport"})))
+          LISAMessage.body( "name"->pObj.name, "type"->{if (pObj.positionType==1) "machine" else "transport"})
         }
 
-        (LISAMessage(m), LISAMessage(m+("positionInfo"->LISAValue(posObj))))
+        val filled = m + ("positionInfo"->posObj)
+        (m, filled)
       })
 
       PEMess foreach(m=>{
@@ -54,17 +56,10 @@ class DbEaterEP(prop: LISAEndPointProperties) extends LISAEndPoint(prop) {
     }
   }
 
-  def cd(t: Option[Timestamp]): LISAValue = {
-    import org.joda.time.DateTime
-    t match {
-      case Some(x)=> new DateTime(x)
-      case None => NonePrimitive
-    }
-  }
 }
 
 object DBEaterEP {
-  def props(rawTopic: String, filledTopic: String) = Props(classOf[DbEaterEP], LISAEndPointProperties("dbEater", List(rawTopic, filledTopic), _=>false))
+  def props(rawTopic: String, filledTopic: String) = Props(classOf[DbEaterEP], LISAEndPointProperties("dbEater", List(), List(rawTopic, filledTopic), _=>false))
 }
 
 object DB {
