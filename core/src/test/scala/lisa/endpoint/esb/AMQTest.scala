@@ -46,7 +46,7 @@ class ActiveMQTest(_system: ActorSystem) extends TestKit(_system)
 
       val m2: LISAMessage =  LISAMessage("a1" -> "hej") addHeader("h1",1)
       prod ! m2
-      probe.expectMsgPF() { case mess @ LISAMessage(b,h) => mess.getAs[String]("a1") == Some("hej") && h.get("h1") == 1 }
+      probe.expectMsgPF() { case mess @ LISAMessage(b,h) => mess.getAs[String]("a1") == Some("hej") && h.get("h1") == Some(1) }
     }
 
 

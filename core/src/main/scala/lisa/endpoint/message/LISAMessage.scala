@@ -4,6 +4,8 @@ package lisa.endpoint.message
 import org.joda.time.DateTime
 import org.json4s._
 
+import scala.util.Try
+
 case class LISAMessage(body: JObject, header: Map[String, Any] = Map())
 
 case object LISAMessage {
@@ -19,6 +21,17 @@ case object LISAMessage {
       case (key, value) => key -> Extraction.decompose(value)
     }
     JObject(res.toList)
+  }
+
+  def bodyFromJson(str: String) = {
+    import org.json4s.native.JsonMethods._
+    val json = Try(parse(str))
+    json.map{ v =>
+      v \ "body" match {
+        case x: JObject => x
+        case x => v
+      }
+    }
   }
 }
 
@@ -126,6 +139,25 @@ object MessageLogic {
     }
     def contains(key: String) = {
       !find(key).isEmpty
+    }
+
+    import org.json4s.native.JsonMethods._
+    def toJson = {
+      val hs = mess.header.map{
+        case (key, value) => key -> JString(value.toString)
+      }
+      val hsJson = JObject(hs.toList)
+      compact(render(JObject("header"-> hsJson, "body"->mess.body)))
+
+    }
+    def bodyToJson = {
+      compact(render(mess.body))
+    }
+    def headerToJson = {
+      val hs = mess.header.map{
+        case (key, value) => key -> JString(value.toString)
+      }
+      compact(render(JObject(hs.toList)))
     }
   }
 

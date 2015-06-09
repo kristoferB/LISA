@@ -8,5 +8,5 @@ object ElasticSearchFiller extends App {
   val system = ActorSystem("ElasticSearchEP")
 
   LISAEndPoint.initial(system)
-  //val mc = system.actorOf(ElasticSearchEP.props(List("operationevents","productfold", "resourcefold", "stateevents")))
+  val mc = system.actorOf(ElasticSearchEP.props(List("test", "operationevents","productfold", "resourcefold", "stateevents")))
 }
