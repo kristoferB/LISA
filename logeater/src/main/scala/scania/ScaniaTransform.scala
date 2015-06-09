@@ -29,7 +29,7 @@ object ScaniaTransform extends App {
 
 case class tempMS(Mode_of_Operation: String,
                    Cycle_timer_value: String,
-                   Cycle_time_value: String,
+                   Cycle_time_number: String,
                    Machine_ID: String,
                    Machine_Status: String)
 
@@ -58,7 +58,7 @@ class ScaniaTransformEP(prop: LISAEndPointProperties) extends LISAEndPoint(prop)
         val newMessY = y.map(v => LISAMessage(
           "Mode_of_Operation" -> tryO(v.Mode_of_Operation.toInt),
           "Cycle_timer_value" -> tryO(v.Cycle_timer_value.toInt),
-          "Cycle_time_value"  -> tryO(v.Cycle_time_value.toInt),
+          "Cycle_time_number"  -> tryO(v.Cycle_time_number.toInt),
           "Machine_ID" -> v.Machine_ID,
           "Machine_Status" -> v.Machine_Status,
           "timestamp" -> time
@@ -66,6 +66,8 @@ class ScaniaTransformEP(prop: LISAEndPointProperties) extends LISAEndPoint(prop)
         ))
       newMess.foreach(m => println("we got at newMess " + m))
       newMessY.foreach(m => println("we got at newMess " + m))
+      println(y)
+      if (newMess == None && newMessY == None)println(mess)
 
         newMess.foreach(topics ! _)
         newMessY.foreach(topics ! _)
