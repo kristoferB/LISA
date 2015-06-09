@@ -10,8 +10,8 @@ object ScaniaTransform extends App {
   LISAEndPoint.initial(system)
 
   //val conf = com.typesafe.config.ConfigFactory.load.getConfig("lisa.scania.consumeTopics")
-  val trans = system.actorOf(ScaniaTransformEP.props(List("Product_Status"), List("Product_Event")))
-  val messL = system.actorOf(lisa.logeaterep.MessageConsumerTest.props(List("Product_Event")))
+  val trans = system.actorOf(ScaniaTransformEP.props(List("Product_Status","Machine_Status"), List("Events")))
+  val messL = system.actorOf(lisa.logeaterep.MessageConsumerTest.props(List("Events")))
 
 
 
@@ -27,6 +27,12 @@ object ScaniaTransform extends App {
 // Event_Position,JString(178)), (
 // Machine_Fixture,JString(1))))
 
+case class tempMS(Mode_of_Operation: String,
+                   Cycle_timer_value: String,
+                   Cycle_time_value: String,
+                   Machine_ID: String,
+                   Machine_Status: String)
+
 case class tempPS(Product_ID: String,
                   Product_Type: String,
                   Product_Status: String,
@@ -37,22 +43,32 @@ class ScaniaTransformEP(prop: LISAEndPointProperties) extends LISAEndPoint(prop)
   import lisa.endpoint.message.MessageLogic._
   def receive = {
     case mess: LISAMessage => {
-      val time = mess.getHeaderTime
+        val time = mess.getHeaderTime
+        val x = mess.getAs[tempPS]
+        val y = mess.getAs[tempMS]
 
-      val x = mess.getAs[tempPS]
-      val newMess = x.map(v => LISAMessage(
-        "Product_ID" -> mess.getAs[String]("Product_ID"),
-        "Product_Type" -> tryO(v.Product_Type.toInt),
-        "Product_Status" -> v.Product_Status,
-        "Event_Position" -> tryO(v.Event_Position.toInt),
-        "Machine_Fixture" -> tryO(v.Machine_Fixture.toInt),
-        "timestamp" -> time
-      ))
+        val newMess = x.map(v => LISAMessage(
+          "Product_ID" ->v.Product_ID,
+          "Product_Type" -> tryO(v.Product_Type.toInt),
+          "Product_Status" -> v.Product_Status,
+          "Event_Position" -> tryO(v.Event_Position.toInt),
+          "Machine_Fixture" -> tryO(v.Machine_Fixture.toInt),
+          "timestamp" -> time
+        ))
+        val newMessY = y.map(v => LISAMessage(
+          "Mode_of_Operation" -> tryO(v.Mode_of_Operation.toInt),
+          "Cycle_timer_value" -> tryO(v.Cycle_timer_value.toInt),
+          "Cycle_time_value"  -> tryO(v.Cycle_time_value.toInt),
+          "Machine_ID" -> v.Machine_ID,
+          "Machine_Status" -> v.Machine_Status,
+          "timestamp" -> time
 
-      println("we got at newMess " + newMess)
+        ))
+      newMess.foreach(m => println("we got at newMess " + m))
+      newMessY.foreach(m => println("we got at newMess " + m))
 
-      newMess.foreach(topics ! _)
-
+        newMess.foreach(topics ! _)
+        newMessY.foreach(topics ! _)
     }
     case x => println(s"Something wrong: $x")
   }
