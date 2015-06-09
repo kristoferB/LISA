@@ -1,2 +1,4 @@
-libraryDependencies += "com.sksamuel.elastic4s" %% "elastic4s" % "1.5.13"
+libraryDependencies += "wabisabi" %% "wabisabi" % "2.1.3"
+
+resolvers += "gphat" at "https://raw.github.com/gphat/mvn-repo/master/releases/"
 

@@ -33,6 +33,10 @@ case object LISAMessage {
       }
     }
   }
+
+  def newID = {
+    java.util.UUID.randomUUID.toString
+  }
 }
 
 object MessageLogic {
