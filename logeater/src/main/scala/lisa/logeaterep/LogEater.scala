@@ -9,10 +9,10 @@ object LogEater extends App {
   val system = ActorSystem("logEater")
   LISAEndPoint.initial(system)
   
-  val le = system.actorOf(LogEaterEP.props(List("operationevents")))
-  val mc = system.actorOf(MessageConsumerTest.props(List("operationevents", "resourcefold")))
+  //val le = system.actorOf(LogEaterEP.props(List("operationevents")))
+  val mc = system.actorOf(MessageConsumerTest.props(List("events")))
   //le ! LogFile("logs/prodE.csv", ScaniaProductEvents)
-  le ! LogFile("logeater/logs/prodEsmall.csv", ScaniaProductEvents)
+  //le ! LogFile("logeater/logs/prodEsmall.csv", ScaniaProductEvents)
   
   //val act = system.actorOf(LogEaterEP.props(List("stateevents")))
   //val mc = system.actorOf(MessageConsumerTest.props(List("stateevents")))

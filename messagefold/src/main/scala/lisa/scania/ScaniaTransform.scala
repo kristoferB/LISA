@@ -1,7 +1,7 @@
-package scania
+package lisa.scania
 
-import lisa.endpoint.esb._
 import akka.actor._
+import lisa.endpoint.esb._
 import lisa.endpoint.message.LISAMessage
 
 

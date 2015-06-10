@@ -62,4 +62,8 @@ lazy val messagefold = project.dependsOn(core).
   settings(commonSettings: _*).
   settings(libraryDependencies ++= depend)
 
+lazy val gui = project.dependsOn(core).
+  settings(commonSettings: _*).
+  settings(libraryDependencies ++= depend)
+
 

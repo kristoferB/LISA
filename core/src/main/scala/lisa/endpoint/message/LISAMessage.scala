@@ -23,6 +23,22 @@ case object LISAMessage {
     JObject(res.toList)
   }
 
+  def fromJson(str: String) = {
+    val body = bodyFromJson(str)
+    import org.json4s.native.JsonMethods._
+    val json = Try(parse(str))
+    json.flatMap{ v =>
+      val h = v \ "header" match {
+        case x: JObject => x
+        case x => JObject()
+      }
+      body.map{
+        case x : JObject => LISAMessage(x,h.obj.toMap)
+        case x => LISAMessage(JObject("key"->x), h.obj.toMap)
+      }
+    }
+  }
+
   def bodyFromJson(str: String) = {
     import org.json4s.native.JsonMethods._
     val json = Try(parse(str))
