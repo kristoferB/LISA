@@ -49,36 +49,36 @@ class SPElastic extends Actor {
       })
     }
 
-    // Returns a list of jsons
-    case GetFromES(topic, search) => {
-      val cl = new ESClient(address, context.system)
-      val q = makeQ(search)
-      println(q)
-      val sendis = sender
-      cl.searchGetBody(topic, q.parseJson).onSuccess({
-        case res: JsObject => {
-          val bodies = extractTheBodies(res)
-          val no = getJs[JsNumber](res, List("hits", "total"))
-          sendis ! makeRes(bodies, no)
-        }
-        case _ => println("Error in ES search SPElastic")
-      })
-
-    }
-
-    case GetFromESID(topic, id) => {
-      val cl = new ESClient(address, context.system)
-      val sendis = sender
-      cl.get(topic, "lisamessage", id).onSuccess({
-        case res: HttpResponse => {
-          val json = res.entity.asString.parseJson
-          println("prodID: "+json)
-          val bodyOp = getJs[JsObject](json, List("_source", "body"))
-          val mess = bodyOp map (body => body.convertTo[LISAMessage])
-          sendis ! mess
-        }
-      })
-    }
+//    // Returns a list of jsons
+//    case GetFromES(topic, search) => {
+//      val cl = new ESClient(address, context.system)
+//      val q = makeQ(search)
+//      println(q)
+//      val sendis = sender
+//      cl.searchGetBody(topic, q.parseJson).onSuccess({
+//        case res: JsObject => {
+//          val bodies = extractTheBodies(res)
+//          val no = getJs[JsNumber](res, List("hits", "total"))
+//          sendis ! makeRes(bodies, no)
+//        }
+//        case _ => println("Error in ES search SPElastic")
+//      })
+//
+//    }
+//
+//    case GetFromESID(topic, id) => {
+//      val cl = new ESClient(address, context.system)
+//      val sendis = sender
+//      cl.get(topic, "lisamessage", id).onSuccess({
+//        case res: HttpResponse => {
+//          val json = res.entity.asString.parseJson
+//          println("prodID: "+json)
+//          val bodyOp = getJs[JsObject](json, List("_source", "body"))
+//          val mess = bodyOp map (body => body.convertTo[LISAMessage])
+//          sendis ! mess
+//        }
+//      })
+//    }
   }
 
   case class esPagination(from: Int, size: Int)
@@ -92,7 +92,7 @@ class SPElastic extends Actor {
     } yield {
         LISAMessage.body("range"->
           LISAMessage.body(
-            "starttime"->LISAMessage.body(
+            "start"->LISAMessage.body(
             "gte" -> x, "lte" -> y
             )))
 //      """"range" : {"starttime" : {"gte" : """" + start +
